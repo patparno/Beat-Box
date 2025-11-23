@@ -30,7 +30,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		A41AF71E2ED3831100820CC9 /* Beat Box.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Beat Box.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A41AF71E2ED3831100820CC9 /* Beat Box by Patrick.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Beat Box by Patrick.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A41AF72B2ED3831300820CC9 /* Beat BoxTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Beat BoxTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A41AF7352ED3831300820CC9 /* Beat BoxUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Beat BoxUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A41AF7482ED3886F00820CC9 /* kick1.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = kick1.mp3; sourceTree = "<group>"; };
@@ -97,7 +97,7 @@
 		A41AF71F2ED3831100820CC9 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				A41AF71E2ED3831100820CC9 /* Beat Box.app */,
+				A41AF71E2ED3831100820CC9 /* Beat Box by Patrick.app */,
 				A41AF72B2ED3831300820CC9 /* Beat BoxTests.xctest */,
 				A41AF7352ED3831300820CC9 /* Beat BoxUITests.xctest */,
 			);
@@ -107,9 +107,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		A41AF71D2ED3831100820CC9 /* Beat Box */ = {
+		A41AF71D2ED3831100820CC9 /* Beat Box by Patrick */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A41AF73F2ED3831300820CC9 /* Build configuration list for PBXNativeTarget "Beat Box" */;
+			buildConfigurationList = A41AF73F2ED3831300820CC9 /* Build configuration list for PBXNativeTarget "Beat Box by Patrick" */;
 			buildPhases = (
 				A41AF71A2ED3831100820CC9 /* Sources */,
 				A41AF71B2ED3831100820CC9 /* Frameworks */,
@@ -122,11 +122,11 @@
 			fileSystemSynchronizedGroups = (
 				A41AF7202ED3831100820CC9 /* Beat Box */,
 			);
-			name = "Beat Box";
+			name = "Beat Box by Patrick";
 			packageProductDependencies = (
 			);
 			productName = "Beat Box";
-			productReference = A41AF71E2ED3831100820CC9 /* Beat Box.app */;
+			productReference = A41AF71E2ED3831100820CC9 /* Beat Box by Patrick.app */;
 			productType = "com.apple.product-type.application";
 		};
 		A41AF72A2ED3831300820CC9 /* Beat BoxTests */ = {
@@ -212,7 +212,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				A41AF71D2ED3831100820CC9 /* Beat Box */,
+				A41AF71D2ED3831100820CC9 /* Beat Box by Patrick */,
 				A41AF72A2ED3831300820CC9 /* Beat BoxTests */,
 				A41AF7342ED3831300820CC9 /* Beat BoxUITests */,
 			);
@@ -273,12 +273,12 @@
 /* Begin PBXTargetDependency section */
 		A41AF72D2ED3831300820CC9 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = A41AF71D2ED3831100820CC9 /* Beat Box */;
+			target = A41AF71D2ED3831100820CC9 /* Beat Box by Patrick */;
 			targetProxy = A41AF72C2ED3831300820CC9 /* PBXContainerItemProxy */;
 		};
 		A41AF7372ED3831300820CC9 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = A41AF71D2ED3831100820CC9 /* Beat Box */;
+			target = A41AF71D2ED3831100820CC9 /* Beat Box by Patrick */;
 			targetProxy = A41AF7362ED3831300820CC9 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -549,7 +549,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A41AF73F2ED3831300820CC9 /* Build configuration list for PBXNativeTarget "Beat Box" */ = {
+		A41AF73F2ED3831300820CC9 /* Build configuration list for PBXNativeTarget "Beat Box by Patrick" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A41AF7402ED3831300820CC9 /* Debug */,

@@ -16,8 +16,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "A41AF71D2ED3831100820CC9"
-               BuildableName = "Beat Box.app"
-               BlueprintName = "Beat Box"
+               BuildableName = "Beat Box by Patrick.app"
+               BlueprintName = "Beat Box by Patrick"
                ReferencedContainer = "container:Beat Box by Patrick.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -69,8 +69,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "A41AF71D2ED3831100820CC9"
-            BuildableName = "Beat Box.app"
-            BlueprintName = "Beat Box"
+            BuildableName = "Beat Box by Patrick.app"
+            BlueprintName = "Beat Box by Patrick"
             ReferencedContainer = "container:Beat Box by Patrick.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -86,8 +86,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "A41AF71D2ED3831100820CC9"
-            BuildableName = "Beat Box.app"
-            BlueprintName = "Beat Box"
+            BuildableName = "Beat Box by Patrick.app"
+            BlueprintName = "Beat Box by Patrick"
             ReferencedContainer = "container:Beat Box by Patrick.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
