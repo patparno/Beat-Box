@@ -6,6 +6,12 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		A41AF7492ED3886F00820CC9 /* kick1.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = A41AF7482ED3886F00820CC9 /* kick1.mp3 */; };
+		A41AF74D2ED38D8300820CC9 /* kick2.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = A41AF74C2ED38D8300820CC9 /* kick2.mp3 */; };
+		A41AF74F2ED38D8B00820CC9 /* snare.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = A41AF74E2ED38D8B00820CC9 /* snare.mp3 */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		A41AF72C2ED3831300820CC9 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -27,6 +33,9 @@
 		A41AF71E2ED3831100820CC9 /* Beat Box.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Beat Box.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A41AF72B2ED3831300820CC9 /* Beat BoxTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Beat BoxTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A41AF7352ED3831300820CC9 /* Beat BoxUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Beat BoxUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A41AF7482ED3886F00820CC9 /* kick1.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = kick1.mp3; sourceTree = "<group>"; };
+		A41AF74C2ED38D8300820CC9 /* kick2.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = kick2.mp3; sourceTree = "<group>"; };
+		A41AF74E2ED38D8B00820CC9 /* snare.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = snare.mp3; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -75,6 +84,9 @@
 		A41AF7152ED3831100820CC9 = {
 			isa = PBXGroup;
 			children = (
+				A41AF7482ED3886F00820CC9 /* kick1.mp3 */,
+				A41AF74C2ED38D8300820CC9 /* kick2.mp3 */,
+				A41AF74E2ED38D8B00820CC9 /* snare.mp3 */,
 				A41AF7202ED3831100820CC9 /* Beat Box */,
 				A41AF72E2ED3831300820CC9 /* Beat BoxTests */,
 				A41AF7382ED3831300820CC9 /* Beat BoxUITests */,
@@ -212,6 +224,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A41AF74F2ED38D8B00820CC9 /* snare.mp3 in Resources */,
+				A41AF7492ED3886F00820CC9 /* kick1.mp3 in Resources */,
+				A41AF74D2ED38D8300820CC9 /* kick2.mp3 in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
