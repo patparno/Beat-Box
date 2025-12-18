@@ -11,24 +11,19 @@ struct ContentView: View {
     @State private var bpm: Double = 120
     @State private var isPlaying = false
     
+    // Audio engine
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
-    private let varispeed = AVAudioUnitVarispeed()   // ✅ new node
+    private let varispeed = AVAudioUnitVarispeed()
     
-    // Keep audioFile in scope for load/start
     @State private var audioFile: AVAudioFile?
     
-    let soundOptions = ["kick1", "kick2", "snare"]
+    // Default bundled sounds
+    @State private var soundOptions = ["kick1", "snare1", "tom1"]
     @State private var selectedSound = "kick1"
     
     var body: some View {
         VStack(spacing: 30) {
-            Image(systemName: "music.note")
-                .resizable()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.blue)
-                .ignoresSafeArea()
-            
             Text("BPM: \(Int(bpm))")
                 .font(.title)
                 .foregroundColor(.white)
@@ -37,9 +32,10 @@ struct ContentView: View {
                 .accentColor(.white)
                 .onChange(of: bpm) {
                     if isPlaying {
-                        varispeed.rate = Float(bpm / 120.0)   // ✅ adjust tempo
+                        varispeed.rate = Float(bpm / 120.0)
                     }
                 }
+            
             Picker("Sound", selection: $selectedSound) {
                 ForEach(soundOptions, id: \.self) { sound in
                     Text(sound.capitalized)
@@ -48,7 +44,7 @@ struct ContentView: View {
             .pickerStyle(SegmentedPickerStyle())
             .onChange(of: selectedSound) {
                 loadSound(named: selectedSound)
-                if isPlaying { startBeat() } // reload sound if playing
+                if isPlaying { startBeat() }
             }
             .foregroundColor(.white)
             
@@ -85,42 +81,100 @@ struct ContentView: View {
         engine.attach(player)
         engine.attach(varispeed)
         
-        // Connect: player → varispeed → mixer
-        engine.connect(player, to: varispeed, format: nil)
-        engine.connect(varispeed, to: engine.mainMixerNode, format: nil)
+        // ✅ Force mono format (44.1 kHz, 1 channel)
+        let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1)
+        
+        engine.connect(player, to: varispeed, format: format)
+        engine.connect(varispeed, to: engine.mainMixerNode, format: format)
         
         try? engine.start()
     }
     
     func loadSound(named: String) {
-        if let url = Bundle.main.url(forResource: named, withExtension: "mp3") {
+        if let url = Bundle.main.url(forResource: named, withExtension: "wav") {
             audioFile = try? AVAudioFile(forReading: url)
         } else {
-            print("\(named).mp3 not found")
+            print("\(named) not found")
+        }
+        
+        if let file = audioFile {
+            let format = file.processingFormat
+            print("Loaded \(named): sampleRate=\(format.sampleRate), channels=\(format.channelCount)")
         }
     }
     
     func startBeat() {
-        guard let file = audioFile else { return }
-        
-        // Always stop before rescheduling
+        guard let file = audioFile else {
+            print("No audio file loaded")
+            return
+        }
         player.stop()
-        
-        // Rewind the file before reading
         file.framePosition = 0
         
-        // Create a new buffer
-        let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat,
-                                      frameCapacity: AVAudioFrameCount(file.length))!
-        try? file.read(into: buffer)
+        let fileFormat = file.processingFormat
+        let frames = AVAudioFrameCount(file.length)
+        guard let inBuffer = AVAudioPCMBuffer(pcmFormat: fileFormat, frameCapacity: frames) else {
+            print("Failed to create input buffer")
+            return
+        }
+        try? file.read(into: inBuffer)
         
-        // Schedule buffer again
-        player.scheduleBuffer(buffer, at: nil, options: .loops, completionHandler: nil)
+        if let channelData = inBuffer.floatChannelData?[0] {
+            let samples = UnsafeBufferPointer(start: channelData, count: Int(inBuffer.frameLength))
+            let maxAmp = samples.max() ?? 0
+            print("Kick1 max amplitude: \(maxAmp)")
+        }
         
-        // Restart playback
+        print("=== Debug Info ===")
+        print("Engine running? \(engine.isRunning)")
+        print("File length: \(file.length)")
+        print("File format: sampleRate=\(fileFormat.sampleRate), channels=\(fileFormat.channelCount)")
+        print("Input buffer frameLength: \(inBuffer.frameLength)")
+        
+        // Ensure engine is running
+        if !engine.isRunning {
+            do {
+                try engine.start()
+                print("Engine started successfully")
+            } catch {
+                print("Engine failed to start: \(error)")
+            }
+        }
+        
+        // Force mono conversion
+        let monoFormat = AVAudioFormat(standardFormatWithSampleRate: fileFormat.sampleRate, channels: 1)!
+        guard let outBuffer = AVAudioPCMBuffer(pcmFormat: monoFormat, frameCapacity: frames) else {
+            print("Failed to create output buffer")
+            return
+        }
+        guard let converter = AVAudioConverter(from: fileFormat, to: monoFormat) else {
+            print("Failed to create converter")
+            return
+        }
+        
+        var error: NSError?
+        var consumed = false
+        let inputBlock: AVAudioConverterInputBlock = { _, outStatus in
+            if consumed {
+                outStatus.pointee = .noDataNow
+                return nil
+            }
+            outStatus.pointee = .haveData
+            consumed = true
+            return inBuffer
+        }
+        
+        converter.convert(to: outBuffer, error: &error, withInputFrom: inputBlock)
+        if let error { print("Conversion error: \(error)") }
+        
+        print("Output buffer frameLength: \(outBuffer.frameLength)")
+        
+        // Schedule and play
+        player.scheduleBuffer(outBuffer, at: nil, options: .loops, completionHandler: nil)
         player.play()
+        print("Player isPlaying after play? \(player.isPlaying)")
         
-        // Apply tempo
         varispeed.rate = Float(bpm / 120.0)
+        print("Varispeed rate set to \(varispeed.rate)")
     }
 }

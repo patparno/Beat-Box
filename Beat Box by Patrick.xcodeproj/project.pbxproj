@@ -7,9 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A41AF7492ED3886F00820CC9 /* kick1.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = A41AF7482ED3886F00820CC9 /* kick1.mp3 */; };
-		A41AF74D2ED38D8300820CC9 /* kick2.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = A41AF74C2ED38D8300820CC9 /* kick2.mp3 */; };
-		A41AF74F2ED38D8B00820CC9 /* snare.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = A41AF74E2ED38D8B00820CC9 /* snare.mp3 */; };
+		A4267E1D2EF3C22100D3F45C /* tom1.wav in Resources */ = {isa = PBXBuildFile; fileRef = A4267E1A2EF3C09300D3F45C /* tom1.wav */; };
+		A4267E1E2EF3C22600D3F45C /* snare1.wav in Resources */ = {isa = PBXBuildFile; fileRef = A4267E1B2EF3C09900D3F45C /* snare1.wav */; };
+		A448A6B42EF471750068B1FC /* kick1.wav in Resources */ = {isa = PBXBuildFile; fileRef = A448A6B32EF471750068B1FC /* kick1.wav */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -33,9 +33,9 @@
 		A41AF71E2ED3831100820CC9 /* Beat Box by Patrick.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Beat Box by Patrick.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A41AF72B2ED3831300820CC9 /* Beat BoxTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Beat BoxTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A41AF7352ED3831300820CC9 /* Beat BoxUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Beat BoxUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
-		A41AF7482ED3886F00820CC9 /* kick1.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = kick1.mp3; sourceTree = "<group>"; };
-		A41AF74C2ED38D8300820CC9 /* kick2.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = kick2.mp3; sourceTree = "<group>"; };
-		A41AF74E2ED38D8B00820CC9 /* snare.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = snare.mp3; sourceTree = "<group>"; };
+		A4267E1A2EF3C09300D3F45C /* tom1.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = tom1.wav; sourceTree = "<group>"; };
+		A4267E1B2EF3C09900D3F45C /* snare1.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = snare1.wav; sourceTree = "<group>"; };
+		A448A6B32EF471750068B1FC /* kick1.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = kick1.wav; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -84,9 +84,7 @@
 		A41AF7152ED3831100820CC9 = {
 			isa = PBXGroup;
 			children = (
-				A41AF7482ED3886F00820CC9 /* kick1.mp3 */,
-				A41AF74C2ED38D8300820CC9 /* kick2.mp3 */,
-				A41AF74E2ED38D8B00820CC9 /* snare.mp3 */,
+				A4267E0D2EF3B4E900D3F45C /* Sounds */,
 				A41AF7202ED3831100820CC9 /* Beat Box */,
 				A41AF72E2ED3831300820CC9 /* Beat BoxTests */,
 				A41AF7382ED3831300820CC9 /* Beat BoxUITests */,
@@ -102,6 +100,16 @@
 				A41AF7352ED3831300820CC9 /* Beat BoxUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		A4267E0D2EF3B4E900D3F45C /* Sounds */ = {
+			isa = PBXGroup;
+			children = (
+				A4267E1A2EF3C09300D3F45C /* tom1.wav */,
+				A4267E1B2EF3C09900D3F45C /* snare1.wav */,
+				A448A6B32EF471750068B1FC /* kick1.wav */,
+			);
+			path = Sounds;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -183,7 +191,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1640;
-				LastUpgradeCheck = 1640;
+				LastUpgradeCheck = 2620;
 				TargetAttributes = {
 					A41AF71D2ED3831100820CC9 = {
 						CreatedOnToolsVersion = 16.4;
@@ -224,9 +232,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A41AF74F2ED38D8B00820CC9 /* snare.mp3 in Resources */,
-				A41AF7492ED3886F00820CC9 /* kick1.mp3 in Resources */,
-				A41AF74D2ED38D8300820CC9 /* kick2.mp3 in Resources */,
+				A448A6B42EF471750068B1FC /* kick1.wav in Resources */,
+				A4267E1E2EF3C22600D3F45C /* snare1.wav in Resources */,
+				A4267E1D2EF3C22100D3F45C /* tom1.wav in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -343,6 +351,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -400,6 +409,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};
