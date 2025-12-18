@@ -9,36 +9,37 @@ import AVFoundation
 
 struct ContentView: View {
     @State private var bpm: Double = 120
-    @State private var audioPlayer: AVAudioPlayer?
-    @State private var timer: Timer?
     @State private var isPlaying = false
     
-    // Add your MP3 filenames here (without extension)
+    private let engine = AVAudioEngine()
+    private let player = AVAudioPlayerNode()
+    private let varispeed = AVAudioUnitVarispeed()   // ✅ new node
+    
+    // Keep audioFile in scope for load/start
+    @State private var audioFile: AVAudioFile?
+    
     let soundOptions = ["kick1", "kick2", "snare"]
     @State private var selectedSound = "kick1"
     
     var body: some View {
         VStack(spacing: 30) {
-            // Drum icon
             Image(systemName: "music.note")
                 .resizable()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color.blue)
                 .ignoresSafeArea()
             
-            // BPM label
             Text("BPM: \(Int(bpm))")
                 .font(.title)
                 .foregroundColor(.white)
             
-            // Slider
             Slider(value: $bpm, in: 40...240, step: 1)
-                .onChange(of: bpm) {
-                    if isPlaying { restartTimer() }
-                }
                 .accentColor(.white)
-            
-            // Sound picker
+                .onChange(of: bpm) {
+                    if isPlaying {
+                        varispeed.rate = Float(bpm / 120.0)   // ✅ adjust tempo
+                    }
+                }
             Picker("Sound", selection: $selectedSound) {
                 ForEach(soundOptions, id: \.self) { sound in
                     Text(sound.capitalized)
@@ -47,16 +48,16 @@ struct ContentView: View {
             .pickerStyle(SegmentedPickerStyle())
             .onChange(of: selectedSound) {
                 loadSound(named: selectedSound)
+                if isPlaying { startBeat() } // reload sound if playing
             }
             .foregroundColor(.white)
             
-            // Start/Stop toggle button
             Button(action: {
                 isPlaying.toggle()
                 if isPlaying {
-                    restartTimer()
+                    startBeat()
                 } else {
-                    timer?.invalidate()
+                    player.stop()
                 }
             }) {
                 Text(isPlaying ? "Stop" : "Start")
@@ -69,42 +70,57 @@ struct ContentView: View {
             }
         }
         .padding()
-        .background(Color.blue) // coloured background
+        .background(Color.blue)
         .onAppear {
             setupAudio()
             loadSound(named: selectedSound)
         }
         .onDisappear {
-            timer?.invalidate()
+            player.stop()
+            engine.stop()
         }
     }
     
     func setupAudio() {
-        do {
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
-            try AVAudioSession.sharedInstance().setActive(true)
-        } catch {
-            print("Audio session error: \(error)")
-        }
+        engine.attach(player)
+        engine.attach(varispeed)
+        
+        // Connect: player → varispeed → mixer
+        engine.connect(player, to: varispeed, format: nil)
+        engine.connect(varispeed, to: engine.mainMixerNode, format: nil)
+        
+        try? engine.start()
     }
     
     func loadSound(named: String) {
         if let url = Bundle.main.url(forResource: named, withExtension: "mp3") {
-            audioPlayer = try? AVAudioPlayer(contentsOf: url)
-            audioPlayer?.prepareToPlay()
+            audioFile = try? AVAudioFile(forReading: url)
         } else {
-            print("\(named).mp3 not found in bundle")
+            print("\(named).mp3 not found")
         }
     }
     
-    func restartTimer() {
-        timer?.invalidate()
-        let interval = 60.0 / bpm
-        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { _ in
-            audioPlayer?.currentTime = 0
-            audioPlayer?.play()
-        }
+    func startBeat() {
+        guard let file = audioFile else { return }
+        
+        // Always stop before rescheduling
+        player.stop()
+        
+        // Rewind the file before reading
+        file.framePosition = 0
+        
+        // Create a new buffer
+        let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat,
+                                      frameCapacity: AVAudioFrameCount(file.length))!
+        try? file.read(into: buffer)
+        
+        // Schedule buffer again
+        player.scheduleBuffer(buffer, at: nil, options: .loops, completionHandler: nil)
+        
+        // Restart playback
+        player.play()
+        
+        // Apply tempo
+        varispeed.rate = Float(bpm / 120.0)
     }
-    
 }
-
