@@ -5,176 +5,124 @@
 //  Created by Patrick Parno on 2025-11-23.
 //
 import SwiftUI
-import AVFoundation
 
 struct ContentView: View {
-    @State private var bpm: Double = 120
-    @State private var isPlaying = false
-    
-    // Audio engine
-    private let engine = AVAudioEngine()
-    private let player = AVAudioPlayerNode()
-    private let varispeed = AVAudioUnitVarispeed()
-    
-    @State private var audioFile: AVAudioFile?
-    
-    // Default bundled sounds
-    @State private var soundOptions = ["kick1", "snare1", "tom1"]
-    @State private var selectedSound = "kick1"
-    
+    @StateObject private var engine = BeatEngine()
+
+    // Simple per‑track sound selection
+    @State private var kickSound  = "kick1"
+    @State private var snareSound = "snare1"
+    @State private var tomSound   = "tom1"
+
     var body: some View {
-        VStack(spacing: 30) {
-            Text("BPM: \(Int(bpm))")
+        VStack(spacing: 24) {
+            Text("BPM: \(Int(engine.bpm))")
                 .font(.title)
-                .foregroundColor(.white)
-            
-            Slider(value: $bpm, in: 40...240, step: 1)
-                .accentColor(.white)
-                .onChange(of: bpm) {
-                    if isPlaying {
-                        varispeed.rate = Float(bpm / 120.0)
+
+            Slider(value: $engine.bpm, in: 40...240, step: 1)
+                .padding(.horizontal)
+
+            // 16‑step grid
+            VStack(spacing: 16) {
+                stepRow(title: "Kick",  pattern: $engine.kickPattern)
+                stepRow(title: "Snr", pattern: $engine.snarePattern)
+                stepRow(title: "Tom",   pattern: $engine.tomPattern)
+            }
+
+            // Sound pickers
+            VStack(spacing: 12) {
+                soundPickerRow(title: "Kick", selection: $kickSound) {
+                    engine.loadKick(named: kickSound)
+                }
+                soundPickerRow(title: "Snr", selection: $snareSound) {
+                    engine.loadSnare(named: snareSound)
+                }
+                soundPickerRow(title: "Tom", selection: $tomSound) {
+                    engine.loadTom(named: tomSound)
+                }
+            }
+
+            HStack(spacing: 16) {
+                Button(engine.isPlaying ? "Stop" : "Start") {
+                    if engine.isPlaying {
+                        engine.stop()
+                    } else {
+                        engine.start()
                     }
                 }
-            
-            Picker("Sound", selection: $selectedSound) {
-                ForEach(soundOptions, id: \.self) { sound in
-                    Text(sound.capitalized)
+                .font(.headline)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 10)
+                .background(engine.isPlaying ? Color.red.opacity(0.9) : Color.green.opacity(0.9))
+                .foregroundColor(.white)
+                .cornerRadius(10)
+
+                Button("Clear") {
+                    engine.kickPattern = Array(repeating: false, count: 16)
+                    engine.snarePattern = Array(repeating: false, count: 16)
+                    engine.tomPattern = Array(repeating: false, count: 16)
                 }
-            }
-            .pickerStyle(SegmentedPickerStyle())
-            .onChange(of: selectedSound) {
-                loadSound(named: selectedSound)
-                if isPlaying { startBeat() }
-            }
-            .foregroundColor(.white)
-            
-            Button(action: {
-                isPlaying.toggle()
-                if isPlaying {
-                    startBeat()
-                } else {
-                    player.stop()
-                }
-            }) {
-                Text(isPlaying ? "Stop" : "Start")
-                    .font(.headline)
-                    .padding()
-                    .frame(width: 120)
-                    .background(Color.white)
-                    .foregroundColor(.blue)
-                    .cornerRadius(10)
+                .font(.headline)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 10)
+                .background(Color.gray.opacity(0.3))
+                .foregroundColor(.black)
+                .cornerRadius(10)
             }
         }
         .padding()
-        .background(Color.blue)
         .onAppear {
-            setupAudio()
-            loadSound(named: selectedSound)
-        }
-        .onDisappear {
-            player.stop()
-            engine.stop()
+            engine.loadKick(named: kickSound)
+            engine.loadSnare(named: snareSound)
+            engine.loadTom(named: tomSound)
         }
     }
-    
-    func setupAudio() {
-        engine.attach(player)
-        engine.attach(varispeed)
-        
-        // ✅ Force mono format (44.1 kHz, 1 channel)
-        let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1)
-        
-        engine.connect(player, to: varispeed, format: format)
-        engine.connect(varispeed, to: engine.mainMixerNode, format: format)
-        
-        try? engine.start()
-    }
-    
-    func loadSound(named: String) {
-        if let url = Bundle.main.url(forResource: named, withExtension: "wav") {
-            audioFile = try? AVAudioFile(forReading: url)
-        } else {
-            print("\(named) not found")
-        }
-        
-        if let file = audioFile {
-            let format = file.processingFormat
-            print("Loaded \(named): sampleRate=\(format.sampleRate), channels=\(format.channelCount)")
-        }
-    }
-    
-    func startBeat() {
-        guard let file = audioFile else {
-            print("No audio file loaded")
-            return
-        }
-        player.stop()
-        file.framePosition = 0
-        
-        let fileFormat = file.processingFormat
-        let frames = AVAudioFrameCount(file.length)
-        guard let inBuffer = AVAudioPCMBuffer(pcmFormat: fileFormat, frameCapacity: frames) else {
-            print("Failed to create input buffer")
-            return
-        }
-        try? file.read(into: inBuffer)
-        
-        if let channelData = inBuffer.floatChannelData?[0] {
-            let samples = UnsafeBufferPointer(start: channelData, count: Int(inBuffer.frameLength))
-            let maxAmp = samples.max() ?? 0
-            print("Kick1 max amplitude: \(maxAmp)")
-        }
-        
-        print("=== Debug Info ===")
-        print("Engine running? \(engine.isRunning)")
-        print("File length: \(file.length)")
-        print("File format: sampleRate=\(fileFormat.sampleRate), channels=\(fileFormat.channelCount)")
-        print("Input buffer frameLength: \(inBuffer.frameLength)")
-        
-        // Ensure engine is running
-        if !engine.isRunning {
-            do {
-                try engine.start()
-                print("Engine started successfully")
-            } catch {
-                print("Engine failed to start: \(error)")
+
+    // MARK: - UI helpers
+
+    private func stepRow(title: String, pattern: Binding<[Bool]>) -> some View {
+        HStack(spacing: 4) {
+            Text(title)
+                .frame(width: 50, alignment: .leading)
+            
+            ForEach(0..<16, id: \.self) { index in
+                let isOn = pattern.wrappedValue[index]
+                Button {
+                    pattern.wrappedValue[index].toggle()
+                } label: {
+                    let isBarBoundary = index % 4 == 0
+                    
+                    Rectangle()
+                        .fill(
+                            isOn
+                            ? Color.blue
+                            : (isBarBoundary ? Color.gray.opacity(0.45) : Color.gray.opacity(0.25))
+                        )
+                        .frame(width: 18, height: 28)
+                        .cornerRadius(4)
+                    
+                }
             }
         }
-        
-        // Force mono conversion
-        let monoFormat = AVAudioFormat(standardFormatWithSampleRate: fileFormat.sampleRate, channels: 1)!
-        guard let outBuffer = AVAudioPCMBuffer(pcmFormat: monoFormat, frameCapacity: frames) else {
-            print("Failed to create output buffer")
-            return
-        }
-        guard let converter = AVAudioConverter(from: fileFormat, to: monoFormat) else {
-            print("Failed to create converter")
-            return
-        }
-        
-        var error: NSError?
-        var consumed = false
-        let inputBlock: AVAudioConverterInputBlock = { _, outStatus in
-            if consumed {
-                outStatus.pointee = .noDataNow
-                return nil
+    }
+
+    private func soundPickerRow(title: String,
+                                selection: Binding<String>,
+                                onChange: @escaping () -> Void) -> some View {
+        HStack {
+            Text(title)
+                .frame(width: 50, alignment: .leading)
+
+            Picker(title, selection: selection) {
+                Text("kick1").tag("kick1")
+                Text("snare1").tag("snare1")
+                Text("tom1").tag("tom1")
+                Text("click").tag("click")  // you can use click as a sound for any track
             }
-            outStatus.pointee = .haveData
-            consumed = true
-            return inBuffer
+            .pickerStyle(.segmented)
+            .onChange(of: selection.wrappedValue) {
+                onChange()
+            }
         }
-        
-        converter.convert(to: outBuffer, error: &error, withInputFrom: inputBlock)
-        if let error { print("Conversion error: \(error)") }
-        
-        print("Output buffer frameLength: \(outBuffer.frameLength)")
-        
-        // Schedule and play
-        player.scheduleBuffer(outBuffer, at: nil, options: .loops, completionHandler: nil)
-        player.play()
-        print("Player isPlaying after play? \(player.isPlaying)")
-        
-        varispeed.rate = Float(bpm / 120.0)
-        print("Varispeed rate set to \(varispeed.rate)")
     }
 }
