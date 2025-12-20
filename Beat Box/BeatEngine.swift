@@ -41,6 +41,14 @@ class BeatEngine: ObservableObject {
         engine.connect(snarePlayer, to: engine.mainMixerNode, format: monoFormat)
         engine.connect(tomPlayer,   to: engine.mainMixerNode, format: monoFormat)
 
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+            try session.setActive(true)
+        } catch {
+            print("Audio session error: \(error)")
+        }
+        
         try? engine.start()
     }
 
