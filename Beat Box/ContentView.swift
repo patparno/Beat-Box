@@ -8,11 +8,7 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var engine = BeatEngine()
-
-    // Simple per‑track sound selection
-    @State private var kickSound  = "kick1"
-    @State private var snareSound = "snare1"
-    @State private var tomSound   = "tom1"
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         VStack(spacing: 24) {
@@ -31,15 +27,9 @@ struct ContentView: View {
 
             // Sound pickers
             VStack(spacing: 12) {
-                soundPickerRow(title: "Kick", selection: $kickSound) {
-                    engine.loadKick(named: kickSound)
-                }
-                soundPickerRow(title: "Snr", selection: $snareSound) {
-                    engine.loadSnare(named: snareSound)
-                }
-                soundPickerRow(title: "Tom", selection: $tomSound) {
-                    engine.loadTom(named: tomSound)
-                }
+                soundPickerRow(title: "Kick", selection: $engine.kickSound)
+                soundPickerRow(title: "Snr", selection: $engine.snareSound)
+                soundPickerRow(title: "Tom", selection: $engine.tomSound)
             }
 
             HStack(spacing: 16) {
@@ -56,6 +46,7 @@ struct ContentView: View {
                 .background(engine.isPlaying ? Color.red.opacity(0.9) : Color.green.opacity(0.9))
                 .foregroundColor(.white)
                 .cornerRadius(10)
+                .accessibilityIdentifier("startStopButton")
 
                 Button("Clear") {
                     engine.kickPattern = Array(repeating: false, count: 16)
@@ -68,13 +59,14 @@ struct ContentView: View {
                 .background(Color.gray.opacity(0.3))
                 .foregroundColor(.black)
                 .cornerRadius(10)
+                .accessibilityIdentifier("clearButton")
             }
         }
         .padding()
-        .onAppear {
-            engine.loadKick(named: kickSound)
-            engine.loadSnare(named: snareSound)
-            engine.loadTom(named: tomSound)
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .background {
+                engine.flushPersistedState()
+            }
         }
     }
 
@@ -86,12 +78,17 @@ struct ContentView: View {
                 .frame(width: 50, alignment: .leading)
             
             ForEach(0..<16, id: \.self) { index in
-                let isOn = pattern.wrappedValue[index]
+                // Safe access: ensure the index exists before reading or writing
+                let isOn = pattern.wrappedValue.indices.contains(index) ? pattern.wrappedValue[index] : false
+
                 Button {
-                    pattern.wrappedValue[index].toggle()
+                    if pattern.wrappedValue.indices.contains(index) {
+                        pattern.wrappedValue[index].toggle()
+                    }
                 } label: {
                     let isBarBoundary = index % 4 == 0
-                    
+                    let isPlayhead = engine.isPlaying && engine.currentStep == index
+
                     Rectangle()
                         .fill(
                             isOn
@@ -100,15 +97,18 @@ struct ContentView: View {
                         )
                         .frame(width: 18, height: 28)
                         .cornerRadius(4)
-                    
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4)
+                                .stroke(Color.yellow, lineWidth: isPlayhead ? 2 : 0)
+                        )
+                        .accessibilityIdentifier("\(title.lowercased())_step_\(index)")
+
                 }
             }
         }
     }
 
-    private func soundPickerRow(title: String,
-                                selection: Binding<String>,
-                                onChange: @escaping () -> Void) -> some View {
+    private func soundPickerRow(title: String, selection: Binding<String>) -> some View {
         HStack {
             Text(title)
                 .frame(width: 50, alignment: .leading)
@@ -120,9 +120,6 @@ struct ContentView: View {
                 Text("click").tag("click")  // you can use click as a sound for any track
             }
             .pickerStyle(.segmented)
-            .onChange(of: selection.wrappedValue) {
-                onChange()
-            }
         }
     }
 }

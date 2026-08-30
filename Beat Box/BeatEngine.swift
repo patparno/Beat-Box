@@ -3,17 +3,24 @@
 
 import Foundation
 import AVFoundation
+import QuartzCore
 
 class BeatEngine: ObservableObject {
-    @Published var bpm: Double = 120 {
-        didSet { restartTimerIfNeeded() }
-    }
+    @Published var bpm: Double = 120 { didSet { persistState() } }
     @Published var isPlaying = false
 
+    // Currently sounding step, synced to actual playback time (-1 when stopped)
+    @Published var currentStep = -1
+
     // 16‑step patterns (true = play on that step)
-    @Published var kickPattern  = Array(repeating: false, count: 16)
-    @Published var snarePattern = Array(repeating: false, count: 16)
-    @Published var tomPattern   = Array(repeating: false, count: 16)
+    @Published var kickPattern  = Array(repeating: false, count: 16) { didSet { persistState() } }
+    @Published var snarePattern = Array(repeating: false, count: 16) { didSet { persistState() } }
+    @Published var tomPattern   = Array(repeating: false, count: 16) { didSet { persistState() } }
+
+    // Per‑track sound selection
+    @Published var kickSound  = "kick1"  { didSet { loadKick(named: kickSound);   persistState() } }
+    @Published var snareSound = "snare1" { didSet { loadSnare(named: snareSound); persistState() } }
+    @Published var tomSound   = "tom1"   { didSet { loadTom(named: tomSound);     persistState() } }
 
     private let engine = AVAudioEngine()
     private let kickPlayer  = AVAudioPlayerNode()
@@ -24,9 +31,30 @@ class BeatEngine: ObservableObject {
     private var snareBuffer: AVAudioPCMBuffer?
     private var tomBuffer: AVAudioPCMBuffer?
 
-    private var stepTimer: DispatchSourceTimer?
+    private let sampleRate: Double = 44100
     private let stepsPerBeat = 4        // 16‑th note grid
-    private var currentStep = 0         // 0...15
+
+    // MARK: - Lookahead scheduler state
+    // Pattern adapted from the classic "tale of two clocks" Web Audio scheduling
+    // technique: a frequent, cheap timer looks ahead a short window and schedules
+    // any audio events (and matching UI updates) that fall inside it against the
+    // engine's own sample clock, rather than firing playback directly off a timer.
+    private var schedulerTimer: DispatchSourceTimer?
+    private let schedulerIntervalSeconds: Double = 0.02   // how often we look ahead
+    private let scheduleAheadSeconds: Double = 0.1         // how far ahead we schedule
+
+    private var nextStepToSchedule = 0
+    private var nextStepSampleTime: AVAudioFramePosition = 0
+    private var anchorSampleTime: AVAudioFramePosition = 0
+    private var anchorHostSeconds: CFTimeInterval = 0
+    private var playbackSession = 0
+
+    // Suppresses persistState() while restoreState() is assigning properties
+    // one at a time. Without this, the first property restored (e.g. bpm)
+    // would trigger a save that writes back the *other* properties' still-
+    // default in-memory values, clobbering their saved data on disk before
+    // restoreState() gets a chance to read it.
+    private var isRestoring = false
 
     init() {
         engine.attach(kickPlayer)
@@ -34,7 +62,6 @@ class BeatEngine: ObservableObject {
         engine.attach(tomPlayer)
 
         // Force a mono path to match your mono buffers
-        let sampleRate: Double = 44100
         let monoFormat = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1)!
 
         engine.connect(kickPlayer,  to: engine.mainMixerNode, format: monoFormat)
@@ -48,8 +75,76 @@ class BeatEngine: ObservableObject {
         } catch {
             print("Audio session error: \(error)")
         }
-        
+
         try? engine.start()
+
+        restoreState()
+    }
+
+    // MARK: - Persistence
+
+    private enum DefaultsKey {
+        static let bpm          = "beatbox.bpm"
+        static let kickPattern  = "beatbox.kickPattern"
+        static let snarePattern = "beatbox.snarePattern"
+        static let tomPattern   = "beatbox.tomPattern"
+        static let kickSound    = "beatbox.kickSound"
+        static let snareSound   = "beatbox.snareSound"
+        static let tomSound     = "beatbox.tomSound"
+    }
+
+    private func persistState() {
+        guard !isRestoring else { return }
+        let defaults = UserDefaults.standard
+        defaults.set(bpm, forKey: DefaultsKey.bpm)
+        // Bool arrays round-trip through UserDefaults/a plist as plain 0/1
+        // integers, so reading them back with `as? [Bool]` silently fails.
+        // JSON-encoding sidesteps that ambiguity entirely.
+        defaults.set(try? JSONEncoder().encode(kickPattern), forKey: DefaultsKey.kickPattern)
+        defaults.set(try? JSONEncoder().encode(snarePattern), forKey: DefaultsKey.snarePattern)
+        defaults.set(try? JSONEncoder().encode(tomPattern), forKey: DefaultsKey.tomPattern)
+        defaults.set(kickSound, forKey: DefaultsKey.kickSound)
+        defaults.set(snareSound, forKey: DefaultsKey.snareSound)
+        defaults.set(tomSound, forKey: DefaultsKey.tomSound)
+    }
+
+    /// UserDefaults writes are cached in-process and flushed to disk on the
+    /// system's own schedule, which isn't guaranteed to happen before the app
+    /// is killed. Call this when the app is about to leave the foreground
+    /// (scenePhase -> .background) to force the pending writes to disk so a
+    /// swipe-to-quit right after editing a pattern doesn't lose it.
+    func flushPersistedState() {
+        UserDefaults.standard.synchronize()
+    }
+
+    /// Restores the last saved beat, if any. Sound selections are always
+    /// (re-)assigned, even absent saved data, since their didSet is what
+    /// actually loads the sample buffers for playback.
+    private func restoreState() {
+        isRestoring = true
+        defer { isRestoring = false }
+
+        let defaults = UserDefaults.standard
+
+        if defaults.object(forKey: DefaultsKey.bpm) != nil {
+            bpm = defaults.double(forKey: DefaultsKey.bpm)
+        }
+        if let data = defaults.data(forKey: DefaultsKey.kickPattern),
+           let saved = try? JSONDecoder().decode([Bool].self, from: data), saved.count == 16 {
+            kickPattern = saved
+        }
+        if let data = defaults.data(forKey: DefaultsKey.snarePattern),
+           let saved = try? JSONDecoder().decode([Bool].self, from: data), saved.count == 16 {
+            snarePattern = saved
+        }
+        if let data = defaults.data(forKey: DefaultsKey.tomPattern),
+           let saved = try? JSONDecoder().decode([Bool].self, from: data), saved.count == 16 {
+            tomPattern = saved
+        }
+
+        kickSound  = defaults.string(forKey: DefaultsKey.kickSound)  ?? kickSound
+        snareSound = defaults.string(forKey: DefaultsKey.snareSound) ?? snareSound
+        tomSound   = defaults.string(forKey: DefaultsKey.tomSound)   ?? tomSound
     }
 
     // MARK: - Loading sounds
@@ -91,7 +186,6 @@ class BeatEngine: ObservableObject {
     }
 
     private func generateClickBuffer() -> AVAudioPCMBuffer? {
-        let sampleRate: Double = 44100
         let duration: Double = 0.01   // 10 ms click
         let frameCount = AVAudioFrameCount(sampleRate * duration)
 
@@ -115,63 +209,97 @@ class BeatEngine: ObservableObject {
             print("No buffers loaded")
             return
         }
+        guard !isPlaying else { return }
 
+        // Anchor "now" in both the engine's sample timeline and wall-clock (host)
+        // time so future steps can be converted between the two consistently.
+        guard let renderTime = engine.outputNode.lastRenderTime, renderTime.isSampleTimeValid else {
+            print("Engine not rendering yet; can't anchor scheduler")
+            return
+        }
+
+        playbackSession += 1
         isPlaying = true
-        currentStep = 0
+        currentStep = -1
+
+        anchorSampleTime = renderTime.sampleTime
+        anchorHostSeconds = CACurrentMediaTime()
+        nextStepSampleTime = anchorSampleTime
+        nextStepToSchedule = 0
 
         kickPlayer.play()
         snarePlayer.play()
         tomPlayer.play()
 
-        startTimer()
+        startSchedulerTimer()
     }
 
     func stop() {
         isPlaying = false
-        stepTimer?.cancel()
-        stepTimer = nil
+        currentStep = -1
+        schedulerTimer?.cancel()
+        schedulerTimer = nil
 
         kickPlayer.stop()
         snarePlayer.stop()
         tomPlayer.stop()
     }
 
-    private func restartTimerIfNeeded() {
-        if isPlaying {
-            stepTimer?.cancel()
-            stepTimer = nil
-            startTimer()
-        }
-    }
-
-    private func startTimer() {
-        let intervalSeconds = (60.0 / bpm) / Double(stepsPerBeat)   // 16th‑note steps
-
+    private func startSchedulerTimer() {
         let timer = DispatchSource.makeTimerSource(queue: .global(qos: .userInteractive))
-        timer.schedule(deadline: .now(), repeating: intervalSeconds)
+        timer.schedule(deadline: .now(), repeating: schedulerIntervalSeconds)
         timer.setEventHandler { [weak self] in
-            self?.advanceStep()
+            self?.scheduleAheadIfNeeded()
         }
-        stepTimer = timer
+        schedulerTimer = timer
         timer.resume()
     }
 
-    private func advanceStep() {
+    /// Schedules every step whose sample time falls within the lookahead window,
+    /// using the current bpm at the moment each step is scheduled. Because bpm is
+    /// read live here (not baked into a fixed timer interval), changing tempo
+    /// mid-playback smoothly changes the spacing of future steps with no restart
+    /// or stutter.
+    private func scheduleAheadIfNeeded() {
         guard isPlaying else { return }
 
-        // Capture current step and buffers safely
-        let step = currentStep
-        currentStep = (currentStep + 1) % 16
+        let session = playbackSession
+        let samplesPerStep = (60.0 / bpm) / Double(stepsPerBeat) * sampleRate
 
-        // Fire the step on the audio queue
+        guard let renderTime = engine.outputNode.lastRenderTime, renderTime.isSampleTimeValid else { return }
+        let scheduleUntilSampleTime = renderTime.sampleTime + AVAudioFramePosition(scheduleAheadSeconds * sampleRate)
+
+        while nextStepSampleTime < scheduleUntilSampleTime {
+            scheduleStep(nextStepToSchedule, atSampleTime: nextStepSampleTime, session: session)
+
+            nextStepToSchedule = (nextStepToSchedule + 1) % 16
+            nextStepSampleTime += AVAudioFramePosition(samplesPerStep)
+        }
+    }
+
+    private func scheduleStep(_ step: Int, atSampleTime sampleTime: AVAudioFramePosition, session: Int) {
+        let when = AVAudioTime(sampleTime: sampleTime, atRate: sampleRate)
+
         if kickPattern[step], let buf = kickBuffer {
-            kickPlayer.scheduleBuffer(buf, at: nil, options: [])
+            kickPlayer.scheduleBuffer(buf, at: when, options: [])
         }
         if snarePattern[step], let buf = snareBuffer {
-            snarePlayer.scheduleBuffer(buf, at: nil, options: [])
+            snarePlayer.scheduleBuffer(buf, at: when, options: [])
         }
         if tomPattern[step], let buf = tomBuffer {
-            tomPlayer.scheduleBuffer(buf, at: nil, options: [])
+            tomPlayer.scheduleBuffer(buf, at: when, options: [])
+        }
+
+        // Drive the visual playhead off the same sample clock so it lines up
+        // with what's actually audible, rather than off the scheduler's own
+        // (much coarser and jittery) timer interval.
+        let secondsFromAnchor = Double(sampleTime - anchorSampleTime) / sampleRate
+        let wallClockSeconds = anchorHostSeconds + secondsFromAnchor
+        let deadline = DispatchTime(uptimeNanoseconds: UInt64(max(wallClockSeconds, 0) * 1_000_000_000))
+
+        DispatchQueue.main.asyncAfter(deadline: deadline) { [weak self] in
+            guard let self, self.isPlaying, self.playbackSession == session else { return }
+            self.currentStep = step
         }
     }
 }
