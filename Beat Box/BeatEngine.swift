@@ -4,6 +4,7 @@
 import Foundation
 import AVFoundation
 import QuartzCore
+import Darwin
 
 class BeatEngine: ObservableObject {
     @Published var bpm: Double = 120 { didSet { persistState() } }
@@ -49,6 +50,40 @@ class BeatEngine: ObservableObject {
     private var anchorHostSeconds: CFTimeInterval = 0
     private var playbackSession = 0
 
+    /// The engine output's *actual* hardware sample rate, which is what
+    /// `engine.outputNode.lastRenderTime.sampleTime` counts in - not
+    /// necessarily the `sampleRate` constant above, which only describes the
+    /// bundled audio files' format. These can differ (e.g. a real device's
+    /// active route reporting 24kHz while our WAV files are 44.1kHz); mixing
+    /// the two up when computing AVAudioTime for scheduling silently placed
+    /// every buffer at the wrong point on the real output timeline - no
+    /// crash, no error, just nothing audible, and only on real hardware,
+    /// since the Simulator's virtual output happened to already be 44.1kHz.
+    private var outputSampleRate: Double {
+        let rate = engine.outputNode.outputFormat(forBus: 0).sampleRate
+        return rate > 0 ? rate : sampleRate
+    }
+
+    /// `AVAudioTime(sampleTime:atRate:)` scheduling turned out to be a real
+    /// bug, not just a display-only concern: on a real device it silently
+    /// dropped every buffer (confirmed via a mixer tap showing true digital
+    /// silence, even while `scheduleBuffer` was being called with valid
+    /// buffers and no error). Sample time is only unambiguous when the value
+    /// and the node consuming it agree on which node's render-relative
+    /// timeline it's counted against; host time sidesteps that entirely -
+    /// it's one absolute wall-clock reference every node agrees on - so
+    /// scheduling is now done from `wallClockSeconds` converted to raw host
+    /// ticks, not from sample counts.
+    private static let hostTicksPerSecond: Double = {
+        var info = mach_timebase_info_data_t()
+        mach_timebase_info(&info)
+        return 1_000_000_000 * Double(info.denom) / Double(info.numer)
+    }()
+
+    private func hostTime(fromSeconds seconds: Double) -> UInt64 {
+        UInt64(max(seconds, 0) * Self.hostTicksPerSecond)
+    }
+
     // Suppresses persistState() while restoreState() is assigning properties
     // one at a time. Without this, the first property restored (e.g. bpm)
     // would trigger a save that writes back the *other* properties' still-
@@ -76,7 +111,11 @@ class BeatEngine: ObservableObject {
             print("Audio session error: \(error)")
         }
 
-        try? engine.start()
+        do {
+            try engine.start()
+        } catch {
+            print("engine.start() failed: \(error)")
+        }
 
         restoreState()
     }
@@ -264,21 +303,24 @@ class BeatEngine: ObservableObject {
         guard isPlaying else { return }
 
         let session = playbackSession
-        let samplesPerStep = (60.0 / bpm) / Double(stepsPerBeat) * sampleRate
+        let outputRate = outputSampleRate
+        let samplesPerStep = (60.0 / bpm) / Double(stepsPerBeat) * outputRate
 
         guard let renderTime = engine.outputNode.lastRenderTime, renderTime.isSampleTimeValid else { return }
-        let scheduleUntilSampleTime = renderTime.sampleTime + AVAudioFramePosition(scheduleAheadSeconds * sampleRate)
+        let scheduleUntilSampleTime = renderTime.sampleTime + AVAudioFramePosition(scheduleAheadSeconds * outputRate)
 
         while nextStepSampleTime < scheduleUntilSampleTime {
-            scheduleStep(nextStepToSchedule, atSampleTime: nextStepSampleTime, session: session)
+            scheduleStep(nextStepToSchedule, atSampleTime: nextStepSampleTime, outputRate: outputRate, session: session)
 
             nextStepToSchedule = (nextStepToSchedule + 1) % 16
             nextStepSampleTime += AVAudioFramePosition(samplesPerStep)
         }
     }
 
-    private func scheduleStep(_ step: Int, atSampleTime sampleTime: AVAudioFramePosition, session: Int) {
-        let when = AVAudioTime(sampleTime: sampleTime, atRate: sampleRate)
+    private func scheduleStep(_ step: Int, atSampleTime sampleTime: AVAudioFramePosition, outputRate: Double, session: Int) {
+        let secondsFromAnchor = Double(sampleTime - anchorSampleTime) / outputRate
+        let wallClockSeconds = anchorHostSeconds + secondsFromAnchor
+        let when = AVAudioTime(hostTime: hostTime(fromSeconds: wallClockSeconds))
 
         if kickPattern[step], let buf = kickBuffer {
             kickPlayer.scheduleBuffer(buf, at: when, options: [])
@@ -290,11 +332,9 @@ class BeatEngine: ObservableObject {
             tomPlayer.scheduleBuffer(buf, at: when, options: [])
         }
 
-        // Drive the visual playhead off the same sample clock so it lines up
-        // with what's actually audible, rather than off the scheduler's own
-        // (much coarser and jittery) timer interval.
-        let secondsFromAnchor = Double(sampleTime - anchorSampleTime) / sampleRate
-        let wallClockSeconds = anchorHostSeconds + secondsFromAnchor
+        // Drive the visual playhead off the same wall-clock time so it lines
+        // up with what's actually audible, rather than off the scheduler's
+        // own (much coarser and jittery) timer interval.
         let deadline = DispatchTime(uptimeNanoseconds: UInt64(max(wallClockSeconds, 0) * 1_000_000_000))
 
         DispatchQueue.main.asyncAfter(deadline: deadline) { [weak self] in
